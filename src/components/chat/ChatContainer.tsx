@@ -32,6 +32,12 @@ export default function ChatContainer() {
   const [streamStartTime, setStreamStartTime] = useState<number | null>(null);
   const [inToolCall, setInToolCall] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Refs to track accumulated content during streaming (fixes closure race condition)
+  const contentAccumulatorRef = useRef<string>("");
+  const reasoningAccumulatorRef = useRef<string[]>([]);
+  const toolCallFlagRef = useRef<boolean>(false);
+  
   const { toast } = useToast();
 
   // Auto-scroll to bottom
@@ -68,6 +74,11 @@ export default function ChatContainer() {
     setStreamStartTime(Date.now());
     setCurrentAssistantMessage("");
     setCurrentReasoning([]);
+    
+    // Reset accumulators
+    contentAccumulatorRef.current = "";
+    reasoningAccumulatorRef.current = [];
+    toolCallFlagRef.current = false;
 
     const conversationMessages: ChatMessageType[] = inToolCall
       ? messages
@@ -81,9 +92,11 @@ export default function ChatContainer() {
 
     await streamChat(conversationMessages, {
       onContent: (content) => {
+        contentAccumulatorRef.current += content;
         setCurrentAssistantMessage((prev) => prev + content);
       },
       onReasoning: (reasoning) => {
+        reasoningAccumulatorRef.current.push(reasoning);
         setCurrentReasoning((prev) => [...prev, reasoning]);
       },
       onToolCall: async (toolCall) => {
@@ -118,6 +131,7 @@ export default function ChatContainer() {
           },
         ]);
 
+        toolCallFlagRef.current = true;
         setInToolCall(true);
       },
       onError: (error) => {
@@ -132,14 +146,17 @@ export default function ChatContainer() {
         setInToolCall(false);
       },
       onComplete: () => {
-        if (currentAssistantMessage.trim()) {
-          const reasoning = currentReasoning.join("");
+        // Use refs to get the accumulated content (fixes closure race condition)
+        const finalContent = contentAccumulatorRef.current.trim();
+        const finalReasoning = reasoningAccumulatorRef.current.join("");
+        
+        if (finalContent) {
           setMessages((prev) => [
             ...prev,
             {
               role: "assistant",
-              content: currentAssistantMessage.trim(),
-              reasoning: reasoning || undefined,
+              content: finalContent,
+              reasoning: finalReasoning || undefined,
               timestamp: Date.now(),
             },
           ]);
@@ -151,8 +168,8 @@ export default function ChatContainer() {
       },
     });
 
-    // If there was a tool call, continue the conversation
-    if (inToolCall) {
+    // Check the ref for tool call flag (not the stale closure value)
+    if (toolCallFlagRef.current) {
       setTimeout(() => processStreamResponse(""), 500);
     }
   };
