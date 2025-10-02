@@ -10,7 +10,7 @@ export interface OllamaConfig {
 
 const DEFAULT_CONFIG: OllamaConfig = {
   baseUrl: 'http://localhost:11434',
-  model: 'llama2',
+  model: 'gpt-oss:latest',
 };
 
 export class OllamaClient {

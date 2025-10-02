@@ -10,8 +10,8 @@ import { OllamaClient, Message } from '@/utils/ollama';
 const ChatContainer = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [models, setModels] = useState<string[]>(['llama2']);
-  const [selectedModel, setSelectedModel] = useState('llama2');
+  const [models, setModels] = useState<string[]>(['gpt-oss:latest']);
+  const [selectedModel, setSelectedModel] = useState('gpt-oss:latest');
   const [ollamaClient] = useState(() => new OllamaClient());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
