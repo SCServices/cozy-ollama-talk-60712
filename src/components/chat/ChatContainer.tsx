@@ -70,6 +70,13 @@ export default function ChatContainer() {
   };
 
   const processStreamResponse = async (userMessage: string) => {
+    console.log('🚀 processStreamResponse START', { 
+      userMessage, 
+      inToolCall, 
+      messagesCount: messages.length,
+      lastMessage: messages[messages.length - 1]?.role 
+    });
+    
     setIsStreaming(true);
     setStreamStartTime(Date.now());
     setCurrentAssistantMessage("");
@@ -84,8 +91,14 @@ export default function ChatContainer() {
       ? messages
       : [...messages, { role: "user", content: userMessage, timestamp: Date.now() }];
 
+    console.log('📝 conversationMessages', { 
+      inToolCall, 
+      count: conversationMessages.length 
+    });
+
     if (!inToolCall) {
       setMessages(conversationMessages);
+      console.log('💾 setMessages called (adding user message)');
     }
 
     setInToolCall(false);
@@ -100,18 +113,23 @@ export default function ChatContainer() {
         setCurrentReasoning((prev) => [...prev, reasoning]);
       },
       onToolCall: async (toolCall) => {
+        console.log('🔧 onToolCall triggered', toolCall.function.name);
+        
         // Add tool call message
         const toolCallContent = `Tool call ${toolCall.id}: ${toolCall.function.name}(${JSON.stringify(toolCall.function.arguments)})`;
         
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: toolCallContent,
-            timestamp: Date.now(),
-            isToolCall: true,
-          },
-        ]);
+        setMessages((prev) => {
+          console.log('📝 Adding tool call message', { prevCount: prev.length });
+          return [
+            ...prev,
+            {
+              role: "assistant",
+              content: toolCallContent,
+              timestamp: Date.now(),
+              isToolCall: true,
+            },
+          ];
+        });
 
         // Execute tool
         const toolResponse = executeToolCall(
@@ -120,19 +138,23 @@ export default function ChatContainer() {
         );
 
         // Add tool response
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "tool",
-            content: JSON.stringify(toolResponse, null, 2),
-            tool_call_id: toolCall.id,
-            tool_name: toolCall.function.name,
-            timestamp: Date.now(),
-          },
-        ]);
+        setMessages((prev) => {
+          console.log('📝 Adding tool response', { prevCount: prev.length });
+          return [
+            ...prev,
+            {
+              role: "tool",
+              content: JSON.stringify(toolResponse, null, 2),
+              tool_call_id: toolCall.id,
+              tool_name: toolCall.function.name,
+              timestamp: Date.now(),
+            },
+          ];
+        });
 
         toolCallFlagRef.current = true;
         setInToolCall(true);
+        console.log('🔧 Tool call complete, flags set');
       },
       onError: (error) => {
         console.error("Stream error in ChatContainer:", error);
@@ -146,13 +168,21 @@ export default function ChatContainer() {
         setInToolCall(false);
       },
       onComplete: () => {
+        console.log('✅ onComplete triggered');
+        
         // Use refs to get the accumulated content (fixes closure race condition)
         const finalContent = contentAccumulatorRef.current.trim();
         const finalReasoning = reasoningAccumulatorRef.current.join("");
         
+        console.log('✅ onComplete state', { 
+          finalContent: finalContent.substring(0, 50), 
+          toolCallFlag: toolCallFlagRef.current 
+        });
+        
         // Only add assistant message if there's content AND no tool call happened
         // If a tool call happened, the model will respond after processing the tool result
         if (finalContent && !toolCallFlagRef.current) {
+          console.log('📝 Adding final assistant message');
           setMessages((prev) => [
             ...prev,
             {
@@ -162,6 +192,11 @@ export default function ChatContainer() {
               timestamp: Date.now(),
             },
           ]);
+        } else {
+          console.log('⏭️ Skipping assistant message', { 
+            hasContent: !!finalContent, 
+            toolCall: toolCallFlagRef.current 
+          });
         }
         
         // Always reset streaming state
@@ -169,13 +204,17 @@ export default function ChatContainer() {
         setCurrentReasoning([]);
         setIsStreaming(false);
         setStreamStartTime(null);
+        console.log('✅ onComplete finished');
       },
     });
 
     // Check the ref for tool call flag (not the stale closure value)
     if (toolCallFlagRef.current) {
+      console.log('🔄 Tool call detected, recursing...');
       setTimeout(() => processStreamResponse(""), 500);
     }
+    
+    console.log('🏁 processStreamResponse END');
   };
 
   const handleSendMessage = async (message: string) => {
