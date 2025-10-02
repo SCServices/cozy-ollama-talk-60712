@@ -236,11 +236,11 @@ export default function ChatContainer() {
         ))}
 
         {/* Current streaming message */}
-        {isStreaming && currentAssistantMessage && (
+        {isStreaming && (currentAssistantMessage || currentReasoning.length > 0) && (
           <ChatMessage
             message={{
               role: "assistant",
-              content: currentAssistantMessage,
+              content: currentAssistantMessage || "",
               reasoning: currentReasoning.join(""),
               timestamp: Date.now(),
             }}
