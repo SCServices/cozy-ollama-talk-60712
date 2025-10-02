@@ -121,14 +121,15 @@ export default function ChatContainer() {
         setInToolCall(true);
       },
       onError: (error) => {
-        console.error("Stream error:", error);
+        console.error("Stream error in ChatContainer:", error);
         toast({
-          title: "Error",
+          title: "Connection Error",
           description: error.message,
           variant: "destructive",
         });
         setIsStreaming(false);
         setStreamStartTime(null);
+        setInToolCall(false);
       },
       onComplete: () => {
         if (currentAssistantMessage.trim()) {

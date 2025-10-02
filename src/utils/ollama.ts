@@ -27,35 +27,46 @@ export async function streamChat(
   messages: ChatMessage[],
   callbacks: StreamCallbacks
 ): Promise<void> {
+  console.log("Starting chat stream to:", OLLAMA_URL);
+  console.log("Messages:", messages);
+  
   try {
+    const requestBody = {
+      model: MODEL,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+          ...(msg.tool_call_id && { tool_call_id: msg.tool_call_id }),
+          ...(msg.tool_name && { tool_name: msg.tool_name }),
+        })),
+      ],
+      max_tokens: CONTEXT_WINDOW,
+      temperature: 0.0,
+      top_p: 0.1,
+      top_k: 1,
+      stream: true,
+      tools: tools,
+      tool_selection: "auto",
+    };
+    
+    console.log("Request body:", JSON.stringify(requestBody, null, 2));
+    
     const response = await fetch(OLLAMA_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages.map((msg) => ({
-            role: msg.role,
-            content: msg.content,
-            ...(msg.tool_call_id && { tool_call_id: msg.tool_call_id }),
-            ...(msg.tool_name && { tool_name: msg.tool_name }),
-          })),
-        ],
-        max_tokens: CONTEXT_WINDOW,
-        temperature: 0.0,
-        top_p: 0.1,
-        top_k: 1,
-        stream: true,
-        tools: tools,
-        tool_selection: "auto",
-      }),
+      body: JSON.stringify(requestBody),
     });
 
+    console.log("Response status:", response.status);
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error("Ollama error response:", errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     const reader = response.body?.getReader();
@@ -127,6 +138,11 @@ export async function streamChat(
 
     callbacks.onComplete();
   } catch (error) {
-    callbacks.onError(error as Error);
+    console.error("Stream error details:", error);
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      callbacks.onError(new Error("Cannot connect to Ollama. Make sure Ollama is running at http://localhost:11434"));
+    } else {
+      callbacks.onError(error as Error);
+    }
   }
 }
