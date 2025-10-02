@@ -27,9 +27,15 @@ const ChatContainer = () => {
       }
     }
 
-    // Load available models
-    ollamaClient.listModels().then(setModels).catch(console.error);
-  }, [ollamaClient]);
+    // Load available models and ensure selected model is in the list
+    ollamaClient.listModels().then((fetchedModels) => {
+      if (!fetchedModels.includes(selectedModel)) {
+        setModels([selectedModel, ...fetchedModels]);
+      } else {
+        setModels(fetchedModels);
+      }
+    }).catch(console.error);
+  }, [ollamaClient, selectedModel]);
 
   useEffect(() => {
     // Save chat history to localStorage
