@@ -150,7 +150,9 @@ export default function ChatContainer() {
         const finalContent = contentAccumulatorRef.current.trim();
         const finalReasoning = reasoningAccumulatorRef.current.join("");
         
-        if (finalContent) {
+        // Only add assistant message if there's content AND no tool call happened
+        // If a tool call happened, the model will respond after processing the tool result
+        if (finalContent && !toolCallFlagRef.current) {
           setMessages((prev) => [
             ...prev,
             {
@@ -160,9 +162,11 @@ export default function ChatContainer() {
               timestamp: Date.now(),
             },
           ]);
-          setCurrentAssistantMessage("");
-          setCurrentReasoning([]);
         }
+        
+        // Always reset streaming state
+        setCurrentAssistantMessage("");
+        setCurrentReasoning([]);
         setIsStreaming(false);
         setStreamStartTime(null);
       },
