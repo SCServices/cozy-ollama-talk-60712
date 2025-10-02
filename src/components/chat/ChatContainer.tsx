@@ -118,8 +118,15 @@ export default function ChatContainer() {
         // Add tool call message
         const toolCallContent = `Tool call ${toolCall.id}: ${toolCall.function.name}(${JSON.stringify(toolCall.function.arguments)})`;
         
+        // Execute tool
+        const toolResponse = executeToolCall(
+          toolCall.function.name,
+          toolCall.function.arguments
+        );
+
+        // Add both tool call and response in a single state update to prevent race conditions
         setMessages((prev) => {
-          console.log('📝 Adding tool call message', { prevCount: prev.length });
+          console.log('📝 Adding tool call and response', { prevCount: prev.length });
           return [
             ...prev,
             {
@@ -128,20 +135,6 @@ export default function ChatContainer() {
               timestamp: Date.now(),
               isToolCall: true,
             },
-          ];
-        });
-
-        // Execute tool
-        const toolResponse = executeToolCall(
-          toolCall.function.name,
-          toolCall.function.arguments
-        );
-
-        // Add tool response
-        setMessages((prev) => {
-          console.log('📝 Adding tool response', { prevCount: prev.length });
-          return [
-            ...prev,
             {
               role: "tool",
               content: JSON.stringify(toolResponse, null, 2),
